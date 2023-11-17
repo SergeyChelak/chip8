@@ -16,7 +16,9 @@ pub const DISPLAY_SIZE: USize = USize {
 
 #[derive(Debug)]
 pub enum Error {
-    MemoryFault(usize), // access to wrong address
+    MemoryFault(usize),          // access to wrong address
+    CallMachineCodeRoutine(u16), // call machine code at address
+    EmptyOpcode,
 }
 
 #[derive(Clone, Copy)]
@@ -110,12 +112,15 @@ impl Chip8 {
         self.timer_sound = self.timer_sound.saturating_sub(1);
     }
 
-    pub fn teak(&mut self) {
+    pub fn teak(&mut self) -> Result<(), Error> {
         let opcode = {
             let oc_high = self.memory[self.pc] as u16;
             let oc_low = self.memory[self.pc + 1] as u16;
             (oc_high << 8) | oc_low
         };
+        if opcode == 0 {
+            return Err(Error::EmptyOpcode);
+        }
         // println!("{opcode:018x}, {}", self.pc);
         self.pc += 2;
 
@@ -127,10 +132,6 @@ impl Chip8 {
         // PC : Program Counter
         // I : 16bit register (For memory address) (Similar to void pointer);
         // VN: One of the 16 available variables. N may be 0 to F (hexadecimal);
-
-        if opcode == 0 {
-            panic!("Zero opcode");
-        }
 
         // P****
         let prefix = opcode >> 12;
@@ -152,7 +153,7 @@ impl Chip8 {
             0x0 => match address {
                 0xe0 => self.op_clear_screen(),
                 0xee => self.op_return(),
-                _ => self.op_machine_call(address),
+                _ => return Err(Error::CallMachineCodeRoutine(address)),
             },
             0x1 => self.op_jmp(address),
             0x2 => self.op_call(address),
@@ -189,10 +190,22 @@ impl Chip8 {
                 // println!("Opcode: {opcode:x}");
                 self.op_display(reg_x, reg_y, suffix)
             }
+            0xf => match constant {
+                //
+                0x33 => self.op_bdc(reg_x),
+                0x55 => self.op_reg_dump(reg_x),
+                0x65 => self.op_reg_load(reg_x),
+                _ => {
+                    println!("Opcode {opcode} not implemented yet for F-group, const={constant:x}");
+                    self.state = State::Paused;
+                }
+            },
             _ => {
-                panic!("Opcode {opcode} not implemented yet ({prefix:x})")
+                println!("Opcode {opcode} not implemented yet ({prefix:x})");
+                self.state = State::Paused;
             }
         }
+        Ok(())
     }
 
     fn push(&mut self, value: usize) {
@@ -211,10 +224,6 @@ impl Chip8 {
 
     fn op_return(&mut self) {
         self.pc = self.pop();
-    }
-
-    fn op_machine_call(&mut self, address: u16) {
-        println!("m_call {address}")
     }
 
     fn op_jmp(&mut self, address: u16) {
@@ -330,13 +339,9 @@ impl Chip8 {
     }
 
     fn op_display(&mut self, x: u16, y: u16, height: u8) {
-        println!("disp V{x}, V{y}, {height}");
         let (x, y, height) = (x as usize, y as usize, height as usize);
-        println!("V{x} = {}", self.reg[x]);
-        println!("V{y} = {}", self.reg[y]);
         let (row, col) = (self.reg[y] as usize, self.reg[x] as usize);
 
-        println!("Display at row:{row} col:{col}");
         let ptr = self.reg_ptr as usize;
 
         let mut is_flipped = false;
@@ -357,6 +362,34 @@ impl Chip8 {
             }
         }
         self.reg[0xf] = if is_flipped { 1 } else { 0 };
+    }
+
+    fn op_bdc(&mut self, x: u16) {
+        // TODO: !!!
+        let x = x as usize;
+        let mut val = self.reg[x];
+        let ptr = self.reg_ptr as usize;
+        self.memory[ptr + 2] = val % 10;
+        val /= 10;
+        self.memory[ptr + 1] = val % 10;
+        val /= 10;
+        self.memory[ptr] = val % 10;
+    }
+
+    fn op_reg_dump(&mut self, x: u16) {
+        let x = x as usize;
+        let ptr = self.reg_ptr as usize;
+        for offset in 0..=x {
+            self.memory[ptr + offset] = self.reg[offset];
+        }
+    }
+
+    fn op_reg_load(&mut self, x: u16) {
+        let x = x as usize;
+        let ptr = self.reg_ptr as usize;
+        for offset in 0..=x {
+            self.reg[offset] = self.memory[ptr + offset];
+        }
     }
 
     pub fn get_video_ram(&self) -> &[u8] {

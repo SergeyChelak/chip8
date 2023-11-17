@@ -55,7 +55,10 @@ impl<'a> Renderer<'a> {
             match self.machine.get_state() {
                 State::Terminated => break,
                 State::Running => {
-                    self.machine.teak();
+                    if let Err(error) = self.machine.teak() {
+                        println!("Machine error: {:?}", error);
+                        self.machine.terminate();
+                    }
                 }
                 _ => {}
             }
@@ -64,7 +67,7 @@ impl<'a> Renderer<'a> {
             self.draw_display(&mut canvas)?;
             canvas.present();
 
-            ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 40));
+            // ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 40));
 
             self.machine.on_timer();
         }
@@ -78,6 +81,7 @@ impl<'a> Renderer<'a> {
         match keycode {
             Keycode::Escape => self.machine.terminate(),
             Keycode::F5 => self.machine.toggle_execution(),
+            // Keycode::A =>
             _ => {
                 // unhandled
             }
