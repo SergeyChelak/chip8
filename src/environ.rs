@@ -14,7 +14,7 @@ use sdl2::{Sdl, VideoSubsystem};
 use crate::chip8::{self, Chip8, State};
 use crate::config::{self, Config};
 
-pub struct Renderer<'a> {
+pub struct Environment<'a> {
     sdl_context: Sdl,
     video_subsystem: VideoSubsystem,
     config: Config,
@@ -22,7 +22,7 @@ pub struct Renderer<'a> {
     key_mapping: HashMap<Keycode, u8>,
 }
 
-impl<'a> Renderer<'a> {
+impl<'a> Environment<'a> {
     pub fn new(config: Config, machine: &'a mut Chip8) -> Result<Self, String> {
         let key_mapping = HashMap::from([
             (Keycode::Num1, 0x1),

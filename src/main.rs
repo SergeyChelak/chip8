@@ -12,8 +12,8 @@ use config::Config;
 
 mod common;
 
-mod renderer;
-use renderer::Renderer;
+mod environ;
+use environ::Environment;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -32,8 +32,8 @@ fn main() {
         println!("Failed to load program into memory");
         return;
     };
-    let mut renderer = Renderer::new(config, &mut machine).expect("Failed to setup SDL2");
-    _ = renderer.run();
+    let mut environ = Environment::new(config, &mut machine).expect("Failed to setup SDL2");
+    _ = environ.run();
 }
 
 fn show_usage() {
