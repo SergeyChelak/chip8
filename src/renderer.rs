@@ -79,7 +79,7 @@ impl<'a> Renderer<'a> {
                 State::Terminated => break,
                 State::Running => {
                     if let Err(error) = self.machine.teak() {
-                        println!("Machine error: {:?}", error);
+                        println!("Machine error: {}", error);
                         self.machine.terminate();
                     }
                 }

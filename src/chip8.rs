@@ -1,7 +1,8 @@
+use rand::{rngs::ThreadRng, Rng};
 ///
 /// Chip8 interpreter
 ///
-use rand::{rngs::ThreadRng, Rng};
+use std::fmt::Display;
 
 use crate::common::USize;
 
@@ -19,6 +20,18 @@ pub enum Error {
     MemoryFault(usize),          // access to wrong address
     CallMachineCodeRoutine(u16), // call machine code at address
     UnknownInstruction(Instruction),
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MemoryFault(address) => write!(f, "Attempt to write at {address:x} address"),
+            Self::CallMachineCodeRoutine(address) => {
+                write!(f, "Call machine routine {address:x} not supported")
+            }
+            Self::UnknownInstruction(instr) => write!(f, "Unknown instruction: {instr}"),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -75,6 +88,15 @@ impl Instruction {
     }
 }
 
+impl Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Header: {:x}, NNN: {:x}, NN: {:x}, N: {:x}, X: {:x}, Y:{:x}",
+            self.header, self.nnn, self.nn, self.n, self.x, self.y
+        )
+    }
+}
 pub struct Chip8 {
     reg: [u8; REGISTERS_COUNT],
     reg_ptr: u16, // register pointer to memory
@@ -206,12 +228,10 @@ impl Chip8 {
                 0x55 => self.op_reg_dump(x),
                 0x65 => self.op_reg_load(x),
                 _ => {
-                    self.state = State::Paused;
                     return Err(Error::UnknownInstruction(instr));
                 }
             },
             _ => {
-                self.state = State::Paused;
                 return Err(Error::UnknownInstruction(instr));
             }
         }
