@@ -58,6 +58,7 @@ pub struct Chip8 {
     pc: usize, // program counter
     memory: [u8; MEMORY_SIZE],
     video_memory: Vec<u8>,
+    key_pressed: Option<u8>,
     state: State,
     rng: ThreadRng,
 }
@@ -78,6 +79,7 @@ impl Chip8 {
             pc: 0,
             memory,
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
+            key_pressed: None,
             state: State::Running,
             rng: rand::thread_rng(),
         }
@@ -118,15 +120,10 @@ impl Chip8 {
     }
 
     pub fn teak(&mut self) -> Result<(), Error> {
-        let opcode = {
-            let oc_high = self.memory[self.pc] as u16;
-            let oc_low = self.memory[self.pc + 1] as u16;
-            (oc_high << 8) | oc_low
-        };
+        let opcode = (self.memory[self.pc] as u16) << 8 | self.memory[self.pc + 1] as u16;
         if opcode == 0 {
             return Err(Error::EmptyOpcode);
         }
-        // println!("{opcode:018x}, {}", self.pc);
         self.pc += 2;
 
         // decode
@@ -148,12 +145,12 @@ impl Chip8 {
         let constant = (opcode & 0xff) as u8;
 
         // *X**
-        let reg_x = (opcode & 0b0000_1111_0000_0000) >> 8;
+        let reg_x = opcode >> 8 & 0xf;
         // **Y*
-        let reg_y = (opcode & 0b0000_0000_1111_0000) >> 4;
+        let reg_y = opcode >> 4 & 0xf;
 
         // ***S
-        let suffix = (opcode & 0b0000_0000_0000_1111) as u8;
+        let suffix = (opcode & 0x0f) as u8;
         match prefix {
             0x0 => match address {
                 0xe0 => self.op_clear_screen(),
@@ -191,13 +188,13 @@ impl Chip8 {
             0xa => self.op_mov_ptr(address),
             0xb => self.op_reg0_jmp(address),
             0xc => self.op_rand(reg_x, constant),
-            0xd => {
-                // println!("Opcode: {opcode:x}");
-                self.op_display(reg_x, reg_y, suffix)
-            }
+            0xd => self.op_display(reg_x, reg_y, suffix),
             0xf => match constant {
-                0x29 => self.op_mov_font_addr(reg_x),
+                0x07 => self.op_dump_delay(reg_x),
+                0x15 => self.op_set_delay(reg_x),
+                0x18 => self.op_set_sound(reg_x),
                 0x1e => self.op_ptr_add(reg_x),
+                0x29 => self.op_mov_font_addr(reg_x),
                 0x33 => self.op_bdc(reg_x),
                 0x55 => self.op_reg_dump(reg_x),
                 0x65 => self.op_reg_load(reg_x),
@@ -369,7 +366,6 @@ impl Chip8 {
     }
 
     fn op_bdc(&mut self, x: u16) {
-        // TODO: !!!
         let x = x as usize;
         let mut val = self.reg[x];
         let ptr = self.reg_ptr as usize;
@@ -407,7 +403,31 @@ impl Chip8 {
         self.reg_ptr = FONT_START_ADDRESS as u16 + val * 5;
     }
 
+    fn op_set_delay(&mut self, x: u16) {
+        self.timer_delay = self.reg[x as usize];
+    }
+
+    fn op_set_sound(&mut self, x: u16) {
+        self.timer_sound = self.reg[x as usize];
+    }
+
+    fn op_dump_delay(&mut self, x: u16) {
+        self.reg[x as usize] = self.timer_delay;
+    }
+
     pub fn get_video_ram(&self) -> &[u8] {
         &self.video_memory
+    }
+
+    pub fn key_down(&mut self, key_code: u8) {
+        self.key_pressed = Some(key_code);
+    }
+
+    pub fn key_up(&mut self) {
+        self.key_pressed = None;
+    }
+
+    pub fn is_delayed(&self) -> bool {
+        self.timer_delay > 0
     }
 }
