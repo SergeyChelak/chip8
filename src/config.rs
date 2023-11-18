@@ -12,6 +12,7 @@ pub struct Config {
     pub scale: usize,
     pub color_foreground: Color,
     pub color_background: Color,
+    pub is_pixel_style: bool,
 }
 
 impl Config {
@@ -37,6 +38,7 @@ impl Default for Config {
                 green: 0x00,
                 blue: 0x00,
             },
+            is_pixel_style: true,
         }
     }
 }

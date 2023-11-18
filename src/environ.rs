@@ -168,6 +168,10 @@ impl<'a> Environment<'a> {
                     size as u32,
                 );
                 canvas.fill_rect(rect)?;
+                if self.config.is_pixel_style {
+                    canvas.set_draw_color(bg_color);
+                    canvas.draw_rect(rect)?;
+                }
             }
         }
         Ok(())
