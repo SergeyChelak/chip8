@@ -28,7 +28,7 @@ pub enum State {
     Terminated,
 }
 
-const _DIGIT_SPRITES: [u8; 5 * 16] = [
+const FONT_SPRITES: [u8; 5 * 16] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -46,6 +46,7 @@ const _DIGIT_SPRITES: [u8; 5 * 16] = [
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
+const FONT_START_ADDRESS: usize = 0x50;
 
 pub struct Chip8 {
     reg: [u8; REGISTERS_COUNT],
@@ -63,6 +64,10 @@ pub struct Chip8 {
 
 impl Chip8 {
     pub fn new() -> Self {
+        let mut memory = [0u8; MEMORY_SIZE];
+        for (i, val) in FONT_SPRITES.iter().enumerate() {
+            memory[FONT_START_ADDRESS + i] = *val;
+        }
         Self {
             reg: [0u8; REGISTERS_COUNT],
             reg_ptr: 0,
@@ -71,7 +76,7 @@ impl Chip8 {
             sp: 0,
             stack: [0; STACK_SIZE],
             pc: 0,
-            memory: [0u8; MEMORY_SIZE],
+            memory,
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
             state: State::Running,
             rng: rand::thread_rng(),
@@ -191,7 +196,8 @@ impl Chip8 {
                 self.op_display(reg_x, reg_y, suffix)
             }
             0xf => match constant {
-                //
+                0x29 => self.op_mov_font_addr(reg_x),
+                0x1e => self.op_ptr_add(reg_x),
                 0x33 => self.op_bdc(reg_x),
                 0x55 => self.op_reg_dump(reg_x),
                 0x65 => self.op_reg_load(reg_x),
@@ -255,14 +261,12 @@ impl Chip8 {
     }
 
     fn op_mov(&mut self, x: u16, value: u8) {
-        println!("mov V{x}, {}", value);
         self.reg[x as usize] = value;
     }
 
     fn op_add(&mut self, x: u16, value: u8) {
         let x = x as usize;
         let sum = value as u16 + self.reg[x] as u16;
-        println!("add V{x}, {value}         ; V{x}={}", self.reg[x]);
         self.reg[x] = (sum & 0xff) as u8;
     }
 
@@ -392,19 +396,18 @@ impl Chip8 {
         }
     }
 
-    pub fn get_video_ram(&self) -> &[u8] {
-        &self.video_memory
+    fn op_ptr_add(&mut self, x: u16) {
+        let val = self.reg[x as usize];
+        self.reg_ptr += val as u16;
     }
 
-    pub fn dump_memory(&self) {
-        let mut row = 0;
-        for val in self.memory.chunks(2) {
-            row += 1;
-            print!("{:02x}{:02x} ", val[0], val[1]);
-            if row == 16 {
-                println!();
-                row = 0;
-            }
-        }
+    fn op_mov_font_addr(&mut self, x: u16) {
+        // ????
+        let val = self.reg[x as usize] as u16;
+        self.reg_ptr = FONT_START_ADDRESS as u16 + val * 5;
+    }
+
+    pub fn get_video_ram(&self) -> &[u8] {
+        &self.video_memory
     }
 }

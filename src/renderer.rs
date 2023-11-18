@@ -67,7 +67,7 @@ impl<'a> Renderer<'a> {
             self.draw_display(&mut canvas)?;
             canvas.present();
 
-            // ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 40));
+            ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 
             self.machine.on_timer();
         }

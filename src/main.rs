@@ -35,7 +35,6 @@ fn main() {
     };
     println!("Loaded {len} bytes");
 
-    machine.dump_memory();
     // loop {
     //     machine.teak();
     // }
