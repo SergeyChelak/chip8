@@ -20,6 +20,8 @@ pub enum Error {
     MemoryFault(usize),          // access to wrong address
     CallMachineCodeRoutine(u16), // call machine code at address
     UnknownInstruction(Instruction),
+    StackOverflow,
+    EmptyStack,
 }
 
 impl Display for Error {
@@ -30,6 +32,8 @@ impl Display for Error {
                 write!(f, "Call machine routine {address:x} not supported")
             }
             Self::UnknownInstruction(instr) => write!(f, "Unknown instruction: {instr}"),
+            Self::StackOverflow => write!(f, "Stack overflow"),
+            Self::EmptyStack => write!(f, "Pop on empty stack"),
         }
     }
 }
@@ -59,7 +63,8 @@ const FONT_SPRITES: [u8; 5 * 16] = [
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
-const FONT_START_ADDRESS: usize = 0x50;
+const FONT_BASE_ADDRESS: usize = 0x50;
+const STACK_BASE_ADDRESS: usize = 0x00;
 
 #[derive(Debug)]
 pub struct Instruction {
@@ -103,7 +108,6 @@ pub struct Chip8 {
     timer_delay: u8,
     timer_sound: u8,
     sp: usize, // stack pointer
-    stack: [usize; STACK_SIZE],
     pc: usize, // program counter
     memory: [u8; MEMORY_SIZE],
     video_memory: Vec<u8>,
@@ -116,7 +120,7 @@ impl Chip8 {
     pub fn new() -> Self {
         let mut memory = [0u8; MEMORY_SIZE];
         for (i, val) in FONT_SPRITES.iter().enumerate() {
-            memory[FONT_START_ADDRESS + i] = *val;
+            memory[FONT_BASE_ADDRESS + i] = *val;
         }
         Self {
             reg: [0u8; REGISTERS_COUNT],
@@ -124,7 +128,6 @@ impl Chip8 {
             timer_delay: 0,
             timer_sound: 0,
             sp: 0,
-            stack: [0; STACK_SIZE],
             pc: 0,
             memory,
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
@@ -175,11 +178,11 @@ impl Chip8 {
         match instr.header {
             0x0 => match nnn {
                 0xe0 => self.op_clear_screen(),
-                0xee => self.op_return(),
+                0xee => self.op_return()?,
                 _ => return Err(Error::CallMachineCodeRoutine(nnn)),
             },
             0x1 => self.op_jmp(nnn),
-            0x2 => self.op_call(nnn),
+            0x2 => self.op_call(nnn)?,
             0x3 => self.op_skip_eq(x, nn),
             0x4 => self.op_skip_ne(x, nn),
             0x5 => {
@@ -238,32 +241,46 @@ impl Chip8 {
         Ok(())
     }
 
-    fn push(&mut self, value: usize) {
-        self.stack[self.sp] = value;
+    fn push(&mut self, value: u16) -> Result<(), Error> {
+        if self.sp == STACK_SIZE {
+            return Err(Error::StackOverflow);
+        }
+        let high = (value >> 8) as u8;
+        let low = (value & 0xff) as u8;
+        self.memory[STACK_BASE_ADDRESS + self.sp * 2] = high;
+        self.memory[STACK_BASE_ADDRESS + self.sp * 2 + 1] = low;
         self.sp += 1;
+        Ok(())
     }
 
-    fn pop(&mut self) -> usize {
+    fn pop(&mut self) -> Result<u16, Error> {
+        if self.sp == 0 {
+            return Err(Error::EmptyStack);
+        }
         self.sp -= 1;
-        self.stack[self.sp]
+        let high = self.memory[STACK_BASE_ADDRESS + self.sp * 2] as u16;
+        let low = self.memory[STACK_BASE_ADDRESS + self.sp * 2 + 1] as u16;
+        Ok(high << 8 | low)
     }
 
     fn op_clear_screen(&mut self) {
         self.video_memory.iter_mut().for_each(|val| *val = 0);
     }
 
-    fn op_return(&mut self) {
-        self.pc = self.pop();
+    fn op_return(&mut self) -> Result<(), Error> {
+        self.pc = self.pop()? as usize;
+        Ok(())
     }
 
     fn op_jmp(&mut self, address: u16) {
         self.pc = address as usize;
     }
 
-    fn op_call(&mut self, address: u16) {
+    fn op_call(&mut self, address: u16) -> Result<(), Error> {
         let ret_address = self.pc;
-        self.push(ret_address);
+        self.push(ret_address as u16)?;
         self.pc = address as usize;
+        Ok(())
     }
 
     fn op_skip_eq(&mut self, x: usize, value: u8) {
@@ -418,7 +435,7 @@ impl Chip8 {
     fn op_mov_font_addr(&mut self, x: usize) {
         // not sure if it works as expected
         let val = self.reg[x] as u16;
-        self.reg_ptr = FONT_START_ADDRESS as u16 + val * 5;
+        self.reg_ptr = FONT_BASE_ADDRESS as u16 + val * 5;
     }
 
     fn op_set_delay(&mut self, x: usize) {
