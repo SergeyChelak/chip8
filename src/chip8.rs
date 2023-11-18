@@ -17,8 +17,7 @@ pub const DISPLAY_SIZE: USize = USize {
 
 #[derive(Debug)]
 pub enum Error {
-    MemoryFault(usize),          // access to wrong address
-    CallMachineCodeRoutine(u16), // call machine code at address
+    MemoryFault(usize),
     UnknownInstruction(Instruction),
     StackOverflow,
     EmptyStack,
@@ -28,9 +27,6 @@ impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MemoryFault(address) => write!(f, "Attempt to write at {address:x} address"),
-            Self::CallMachineCodeRoutine(address) => {
-                write!(f, "Call machine routine {address:x} not supported")
-            }
             Self::UnknownInstruction(instr) => write!(f, "Unknown instruction: {instr}"),
             Self::StackOverflow => write!(f, "Stack overflow"),
             Self::EmptyStack => write!(f, "Pop on empty stack"),
@@ -179,7 +175,9 @@ impl Chip8 {
             0x0 => match nnn {
                 0xe0 => self.op_clear_screen(),
                 0xee => self.op_return()?,
-                _ => return Err(Error::CallMachineCodeRoutine(nnn)),
+                _ => {
+                    // ignore machine code routine calls
+                }
             },
             0x1 => self.op_jmp(nnn),
             0x2 => self.op_call(nnn)?,
