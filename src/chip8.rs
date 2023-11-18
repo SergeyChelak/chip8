@@ -316,15 +316,15 @@ impl Chip8 {
         let a = self.reg[x] as u16;
         let b = self.reg[y] as u16;
         let sum = a + b;
-        self.reg[0xf] = if sum > 0xff { 1 } else { 0 };
+        self.reg[0xf] = (sum > 0xff) as u8;
         self.reg[x] = (sum & 0xff) as u8;
     }
 
     fn op_reg_sub(&mut self, x: usize, y: usize) {
-        let a = self.reg[x] as i16;
-        let b = self.reg[y] as i16;
-        self.reg[0xf] = if b < a { 1 } else { 0 };
-        self.reg[x] = ((a - b) & 0xff) as u8;
+        let a = self.reg[x];
+        let b = self.reg[y];
+        self.reg[0xf] = (b < a) as u8;
+        self.reg[x] = (a.wrapping_sub(b) & 0xff) as u8;
     }
 
     fn op_shr(&mut self, x: usize) {
@@ -333,10 +333,10 @@ impl Chip8 {
     }
 
     fn op_reg_sub_rev(&mut self, x: usize, y: usize) {
-        let a = self.reg[x] as i16;
-        let b = self.reg[y] as i16;
-        self.reg[0xf] = if a < b { 1 } else { 0 };
-        self.reg[x] = ((b - a) & 0xff) as u8;
+        let a = self.reg[x];
+        let b = self.reg[y];
+        self.reg[0xf] = (a < b) as u8;
+        self.reg[x] = (b.wrapping_sub(a) & 0xff) as u8;
     }
 
     fn op_shl(&mut self, x: usize) {
