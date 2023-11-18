@@ -416,20 +416,20 @@ impl Chip8 {
 
     fn op_skip_key_eq(&mut self, x: usize) {
         // not sure if this guard is correct
-        let Some(key_code) = self.key_pressed else {
-            return;
-        };
-        if self.reg[x] == key_code {
+        // let Some(key_pressed) = self.key_pressed else {
+        //     return;
+        // };
+        if Some(self.reg[x]) == self.key_pressed {
             self.pc += 2;
         }
     }
 
     fn op_skip_key_ne(&mut self, x: usize) {
         // not sure if this guard is correct
-        let Some(key_code) = self.key_pressed else {
-            return;
-        };
-        if self.reg[x] != key_code {
+        // let Some(key_pressed) = self.key_pressed else {
+        //     return;
+        // };
+        if Some(self.reg[x]) != self.key_pressed {
             self.pc += 2;
         }
     }
@@ -452,9 +452,5 @@ impl Chip8 {
 
     pub fn key_up(&mut self) {
         self.key_pressed = None;
-    }
-
-    pub fn is_delayed(&self) -> bool {
-        self.timer_delay > 0
     }
 }
