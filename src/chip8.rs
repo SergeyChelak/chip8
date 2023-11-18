@@ -190,17 +190,14 @@ impl Chip8 {
                 0x3 => self.op_xor(x, y),
                 0x4 => self.op_reg_add(x, y),
                 0x5 => self.op_reg_sub(x, y),
-                0x6 => self.op_shr(x),
+                0x6 => self.op_shr(x), // y should be ignored?
                 0x7 => self.op_reg_sub_rev(x, y),
-                0xe => self.op_shl(x),
+                0xe => self.op_shl(x), // y should be ignored?
                 _ => {
                     return Err(Error::UnknownInstruction(instr));
                 }
             },
-            0x9 => {
-                assert_eq!(n, 0);
-                self.op_skip_reg_ne(x, y)
-            }
+            0x9 => self.op_skip_reg_ne(x, y),
             0xa => self.op_mov_ptr(nnn),
             0xb => self.op_reg0_jmp(nnn),
             0xc => self.op_rand(x, nn),
