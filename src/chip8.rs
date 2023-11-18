@@ -390,13 +390,11 @@ impl Chip8 {
     }
 
     fn op_bdc(&mut self, x: usize) {
-        let mut val = self.reg[x];
+        let val = self.reg[x];
         let ptr = self.reg_ptr as usize;
+        self.memory[ptr] = val / 100 % 10;
+        self.memory[ptr + 1] = val / 10 % 10;
         self.memory[ptr + 2] = val % 10;
-        val /= 10;
-        self.memory[ptr + 1] = val % 10;
-        val /= 10;
-        self.memory[ptr] = val % 10;
     }
 
     fn op_reg_dump(&mut self, x: usize) {
