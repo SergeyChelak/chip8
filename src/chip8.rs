@@ -177,10 +177,7 @@ impl Chip8 {
             0x2 => self.op_call(nnn)?,
             0x3 => self.op_skip_eq(x, nn),
             0x4 => self.op_skip_ne(x, nn),
-            0x5 => {
-                assert_eq!(n, 0);
-                self.op_skip_reg_eq(x, y)
-            }
+            0x5 => self.op_skip_reg_eq(x, y),
             0x6 => self.op_mov(x, nn),
             0x7 => self.op_add(x, nn),
             0x8 => match n {
