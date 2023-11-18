@@ -466,4 +466,8 @@ impl Chip8 {
     pub fn key_up(&mut self) {
         self.key_pressed = None;
     }
+
+    pub fn is_audio_playing(&self) -> bool {
+        self.timer_sound > 0
+    }
 }

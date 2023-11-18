@@ -4,12 +4,13 @@ extern crate sdl2;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use sdl2::audio::{AudioCallback, AudioSpecDesired, AudioStatus};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
-use sdl2::{Sdl, VideoSubsystem};
+use sdl2::{AudioSubsystem, Sdl, VideoSubsystem};
 
 use crate::chip8::{self, Chip8, State};
 use crate::config::{self, Config};
@@ -17,6 +18,7 @@ use crate::config::{self, Config};
 pub struct Environment<'a> {
     sdl_context: Sdl,
     video_subsystem: VideoSubsystem,
+    audio_subsystem: AudioSubsystem,
     config: Config,
     machine: &'a mut Chip8,
     key_mapping: HashMap<Keycode, u8>,
@@ -44,9 +46,11 @@ impl<'a> Environment<'a> {
         ]);
         let sdl_context = sdl2::init()?;
         let video_subsystem = sdl_context.video()?;
+        let audio_subsystem = sdl_context.audio()?;
         Ok(Self {
             sdl_context,
             video_subsystem,
+            audio_subsystem,
             config,
             machine,
             key_mapping,
@@ -55,7 +59,7 @@ impl<'a> Environment<'a> {
 
     pub fn run(&mut self) -> Result<(), String> {
         let dim = chip8::DISPLAY_SIZE * self.config.scale;
-
+        // video
         let window = self
             .video_subsystem
             .window("Chip8", dim.width as u32, dim.height as u32)
@@ -63,8 +67,27 @@ impl<'a> Environment<'a> {
             .build()
             .map_err(|op| op.to_string())?;
         let mut canvas = window.into_canvas().build().map_err(|op| op.to_string())?;
+        // audio
+        let desired_spec = AudioSpecDesired {
+            freq: Some(44100),
+            channels: Some(1), // mono
+            samples: None,     // default sample size
+        };
+
+        let audio_device = self
+            .audio_subsystem
+            .open_playback(None, &desired_spec, |spec| {
+                // initialize the audio callback
+                SquareWave {
+                    phase_inc: 220.0 / spec.freq as f32,
+                    phase: 0.0,
+                    volume: 0.15,
+                }
+            })
+            .map_err(|op| op.to_string())?;
+        audio_device.pause();
+        // events
         let mut event_pump = self.sdl_context.event_pump()?;
-        let bg_color = Color::from(self.config.color_background);
         let mut refresh_time = Instant::now();
         'emu_loop: loop {
             for event in event_pump.poll_iter() {
@@ -83,12 +106,15 @@ impl<'a> Environment<'a> {
                         self.machine.terminate();
                     }
                 }
-                _ => {}
+                State::Paused => audio_device.pause(),
             }
 
             if refresh_time.elapsed().as_millis() >= 1000 / 60 {
-                canvas.set_draw_color(bg_color);
-                canvas.clear();
+                match (self.machine.is_audio_playing(), audio_device.status()) {
+                    (false, AudioStatus::Playing) => audio_device.pause(),
+                    (true, AudioStatus::Paused) => audio_device.resume(),
+                    _ => {}
+                };
                 self.draw_display(&mut canvas)?;
                 canvas.present();
                 self.machine.on_timer();
@@ -152,5 +178,28 @@ impl<'a> Environment<'a> {
 impl From<config::Color> for Color {
     fn from(value: config::Color) -> Self {
         Color::RGB(value.red, value.green, value.blue)
+    }
+}
+
+// https://docs.rs/sdl2/latest/sdl2/audio/index.html
+struct SquareWave {
+    phase_inc: f32,
+    phase: f32,
+    volume: f32,
+}
+
+impl AudioCallback for SquareWave {
+    type Channel = f32;
+
+    fn callback(&mut self, out: &mut [f32]) {
+        // Generate a square wave
+        for x in out.iter_mut() {
+            *x = if self.phase <= 0.5 {
+                self.volume
+            } else {
+                -self.volume
+            };
+            self.phase = (self.phase + self.phase_inc) % 1.0;
+        }
     }
 }
