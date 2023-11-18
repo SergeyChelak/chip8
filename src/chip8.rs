@@ -18,6 +18,7 @@ pub const DISPLAY_SIZE: USize = USize {
 pub enum Error {
     MemoryFault(usize),          // access to wrong address
     CallMachineCodeRoutine(u16), // call machine code at address
+    UnknownOpcode(u16),
     EmptyOpcode,
 }
 
@@ -178,7 +179,7 @@ impl Chip8 {
                 0x7 => self.op_reg_sub_rev(reg_x, reg_y),
                 0xe => self.op_shl(reg_x),
                 _ => {
-                    panic!("Opcode {opcode} is invalid")
+                    return Err(Error::UnknownOpcode(opcode));
                 }
             },
             0x9 => {
@@ -189,8 +190,16 @@ impl Chip8 {
             0xb => self.op_reg0_jmp(address),
             0xc => self.op_rand(reg_x, constant),
             0xd => self.op_display(reg_x, reg_y, suffix),
+            0xe => match constant {
+                0x9e => self.op_skip_key_eq(reg_x),
+                0xa1 => self.op_skip_key_ne(reg_x),
+                _ => {
+                    return Err(Error::UnknownOpcode(opcode));
+                }
+            },
             0xf => match constant {
                 0x07 => self.op_dump_delay(reg_x),
+                0x0a => self.op_wait_key(reg_x),
                 0x15 => self.op_set_delay(reg_x),
                 0x18 => self.op_set_sound(reg_x),
                 0x1e => self.op_ptr_add(reg_x),
@@ -204,8 +213,8 @@ impl Chip8 {
                 }
             },
             _ => {
-                println!("Opcode {opcode} not implemented yet ({prefix:x})");
                 self.state = State::Paused;
+                return Err(Error::UnknownOpcode(opcode));
             }
         }
         Ok(())
@@ -403,6 +412,34 @@ impl Chip8 {
 
     fn op_dump_delay(&mut self, x: usize) {
         self.reg[x] = self.timer_delay;
+    }
+
+    fn op_skip_key_eq(&mut self, x: usize) {
+        // not sure if this guard is correct
+        let Some(key_code) = self.key_pressed else {
+            return;
+        };
+        if self.reg[x] == key_code {
+            self.pc += 2;
+        }
+    }
+
+    fn op_skip_key_ne(&mut self, x: usize) {
+        // not sure if this guard is correct
+        let Some(key_code) = self.key_pressed else {
+            return;
+        };
+        if self.reg[x] != key_code {
+            self.pc += 2;
+        }
+    }
+
+    fn op_wait_key(&mut self, x: usize) {
+        let Some(key_code) = self.key_pressed else {
+            self.pc -= 2;
+            return;
+        };
+        self.reg[x] = key_code;
     }
 
     pub fn get_video_ram(&self) -> &[u8] {

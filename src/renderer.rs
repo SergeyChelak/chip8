@@ -2,7 +2,7 @@
 extern crate sdl2;
 
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::Instant;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -65,6 +65,7 @@ impl<'a> Renderer<'a> {
         let mut canvas = window.into_canvas().build().map_err(|op| op.to_string())?;
         let mut event_pump = self.sdl_context.event_pump()?;
         let bg_color = Color::from(self.config.color_background);
+        let mut refresh_time = Instant::now();
         'emu_loop: loop {
             for event in event_pump.poll_iter() {
                 match event {
@@ -84,14 +85,15 @@ impl<'a> Renderer<'a> {
                 }
                 _ => {}
             }
-            canvas.set_draw_color(bg_color);
-            canvas.clear();
-            self.draw_display(&mut canvas)?;
-            canvas.present();
 
-            ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 1000));
-
-            self.machine.on_timer();
+            if refresh_time.elapsed().as_millis() >= 1000 / 60 {
+                canvas.set_draw_color(bg_color);
+                canvas.clear();
+                self.draw_display(&mut canvas)?;
+                canvas.present();
+                self.machine.on_timer();
+                refresh_time = Instant::now();
+            }
         }
         Ok(())
     }
