@@ -28,17 +28,10 @@ fn main() {
         println!("Failed to load ROM {}", args[1]);
         return;
     };
-    let mut machine = Chip8::new();
-    let Ok(len) = machine.load_rom(rom) else {
+    let Ok(mut machine) = Chip8::with_rom(&rom) else {
         println!("Failed to load program into memory");
         return;
     };
-    println!("Loaded {len} bytes");
-
-    // loop {
-    //     machine.teak();
-    // }
-
     let mut renderer = Renderer::new(config, &mut machine).expect("Failed to setup SDL2");
     _ = renderer.run();
 }

@@ -17,7 +17,7 @@ pub const DISPLAY_SIZE: USize = USize {
 
 #[derive(Debug)]
 pub enum Error {
-    MemoryFault(usize),
+    RomTooBig(usize),
     UnknownInstruction(Instruction),
     StackOverflow,
     EmptyStack,
@@ -26,7 +26,7 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::MemoryFault(address) => write!(f, "Attempt to write at {address:x} address"),
+            Self::RomTooBig(size) => write!(f, "Rom of size {size} bytes is too big"),
             Self::UnknownInstruction(instr) => write!(f, "Unknown instruction: {instr}"),
             Self::StackOverflow => write!(f, "Stack overflow"),
             Self::EmptyStack => write!(f, "Pop on empty stack"),
@@ -61,6 +61,7 @@ const FONT_SPRITES: [u8; 5 * 16] = [
 ];
 const FONT_BASE_ADDRESS: usize = 0x50;
 const STACK_BASE_ADDRESS: usize = 0x00;
+const PROGRAM_BASE_ADDRESS: usize = 0x200;
 
 #[derive(Debug)]
 pub struct Instruction {
@@ -113,37 +114,30 @@ pub struct Chip8 {
 }
 
 impl Chip8 {
-    pub fn new() -> Self {
+    pub fn with_rom(rom: &[u8]) -> Result<Self, Error> {
         let mut memory = [0u8; MEMORY_SIZE];
+        if rom.len() > MEMORY_SIZE - PROGRAM_BASE_ADDRESS {
+            return Err(Error::RomTooBig(rom.len()));
+        }
+        for (i, val) in rom.iter().enumerate() {
+            memory[PROGRAM_BASE_ADDRESS + i] = *val
+        }
         for (i, val) in FONT_SPRITES.iter().enumerate() {
             memory[FONT_BASE_ADDRESS + i] = *val;
         }
-        Self {
+        Ok(Self {
             reg: [0u8; REGISTERS_COUNT],
             reg_ptr: 0,
             timer_delay: 0,
             timer_sound: 0,
             sp: 0,
-            pc: 0,
+            pc: PROGRAM_BASE_ADDRESS,
             memory,
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
             key_pressed: None,
             state: State::Running,
             rng: rand::thread_rng(),
-        }
-    }
-
-    pub fn load_rom(&mut self, program: Vec<u8>) -> Result<usize, Error> {
-        let offset = 0x200;
-        for (i, val) in program.iter().enumerate() {
-            let address = offset + i;
-            if address >= MEMORY_SIZE {
-                return Err(Error::MemoryFault(address));
-            }
-            self.memory[address] = *val
-        }
-        self.pc = offset;
-        Ok(program.len())
+        })
     }
 
     pub fn get_state(&self) -> State {
@@ -431,7 +425,6 @@ impl Chip8 {
     }
 
     fn op_mov_font_addr(&mut self, x: usize) {
-        // not sure if it works as expected
         let val = self.reg[x] as u16;
         self.reg_ptr = FONT_BASE_ADDRESS as u16 + val * 5;
     }
@@ -449,20 +442,12 @@ impl Chip8 {
     }
 
     fn op_skip_key_eq(&mut self, x: usize) {
-        // not sure if this guard is correct
-        // let Some(key_pressed) = self.key_pressed else {
-        //     return;
-        // };
         if Some(self.reg[x]) == self.key_pressed {
             self.pc += 2;
         }
     }
 
     fn op_skip_key_ne(&mut self, x: usize) {
-        // not sure if this guard is correct
-        // let Some(key_pressed) = self.key_pressed else {
-        //     return;
-        // };
         if Some(self.reg[x]) != self.key_pressed {
             self.pc += 2;
         }
