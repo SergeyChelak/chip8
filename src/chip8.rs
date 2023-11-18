@@ -145,9 +145,9 @@ impl Chip8 {
         let constant = (opcode & 0xff) as u8;
 
         // *X**
-        let reg_x = opcode >> 8 & 0xf;
+        let reg_x = (opcode >> 8 & 0xf) as usize;
         // **Y*
-        let reg_y = opcode >> 4 & 0xf;
+        let reg_y = (opcode >> 4 & 0xf) as usize;
 
         // ***S
         let suffix = (opcode & 0x0f) as u8;
@@ -239,52 +239,50 @@ impl Chip8 {
         self.pc = address as usize;
     }
 
-    fn op_skip_eq(&mut self, x: u16, value: u8) {
-        if self.reg[x as usize] == value {
+    fn op_skip_eq(&mut self, x: usize, value: u8) {
+        if self.reg[x] == value {
             self.pc += 2;
         }
     }
 
-    fn op_skip_ne(&mut self, x: u16, value: u8) {
-        if self.reg[x as usize] != value {
+    fn op_skip_ne(&mut self, x: usize, value: u8) {
+        if self.reg[x] != value {
             self.pc += 2;
         }
     }
 
-    fn op_skip_reg_eq(&mut self, x: u16, y: u16) {
-        if self.reg[x as usize] == self.reg[y as usize] {
+    fn op_skip_reg_eq(&mut self, x: usize, y: usize) {
+        if self.reg[x] == self.reg[y] {
             self.pc += 2;
         }
     }
 
-    fn op_mov(&mut self, x: u16, value: u8) {
-        self.reg[x as usize] = value;
+    fn op_mov(&mut self, x: usize, value: u8) {
+        self.reg[x] = value;
     }
 
-    fn op_add(&mut self, x: u16, value: u8) {
-        let x = x as usize;
+    fn op_add(&mut self, x: usize, value: u8) {
         let sum = value as u16 + self.reg[x] as u16;
         self.reg[x] = (sum & 0xff) as u8;
     }
 
-    fn op_reg_mov(&mut self, x: u16, y: u16) {
-        self.reg[x as usize] = self.reg[y as usize];
+    fn op_reg_mov(&mut self, x: usize, y: usize) {
+        self.reg[x] = self.reg[y];
     }
 
-    fn op_or(&mut self, x: u16, y: u16) {
-        self.reg[x as usize] |= self.reg[y as usize];
+    fn op_or(&mut self, x: usize, y: usize) {
+        self.reg[x] |= self.reg[y];
     }
 
-    fn op_and(&mut self, x: u16, y: u16) {
-        self.reg[x as usize] &= self.reg[y as usize];
+    fn op_and(&mut self, x: usize, y: usize) {
+        self.reg[x] &= self.reg[y];
     }
 
-    fn op_xor(&mut self, x: u16, y: u16) {
-        self.reg[x as usize] ^= self.reg[y as usize];
+    fn op_xor(&mut self, x: usize, y: usize) {
+        self.reg[x] ^= self.reg[y];
     }
 
-    fn op_reg_add(&mut self, x: u16, y: u16) {
-        let (x, y) = (x as usize, y as usize);
+    fn op_reg_add(&mut self, x: usize, y: usize) {
         let a = self.reg[x] as u16;
         let b = self.reg[y] as u16;
         let sum = a + b;
@@ -292,36 +290,32 @@ impl Chip8 {
         self.reg[x] = (sum & 0xff) as u8;
     }
 
-    fn op_reg_sub(&mut self, x: u16, y: u16) {
-        let (x, y) = (x as usize, y as usize);
+    fn op_reg_sub(&mut self, x: usize, y: usize) {
         let a = self.reg[x] as i16;
         let b = self.reg[y] as i16;
         self.reg[0xf] = if b > a { 1 } else { 0 };
         self.reg[x] = ((a - b) & 0xff) as u8;
     }
 
-    fn op_shr(&mut self, x: u16) {
-        let x = x as usize;
+    fn op_shr(&mut self, x: usize) {
         self.reg[0xf] = self.reg[x] & 1;
         self.reg[x] >>= 1;
     }
 
-    fn op_reg_sub_rev(&mut self, x: u16, y: u16) {
-        let (x, y) = (x as usize, y as usize);
+    fn op_reg_sub_rev(&mut self, x: usize, y: usize) {
         let a = self.reg[x] as i16;
         let b = self.reg[y] as i16;
         self.reg[0xf] = if a > b { 1 } else { 0 };
         self.reg[x] = ((b - a) & 0xff) as u8;
     }
 
-    fn op_shl(&mut self, x: u16) {
-        let x = x as usize;
+    fn op_shl(&mut self, x: usize) {
         self.reg[0xf] = self.reg[x] >> 7;
         self.reg[x] <<= 1;
     }
 
-    fn op_skip_reg_ne(&mut self, x: u16, y: u16) {
-        if self.reg[x as usize] != self.reg[y as usize] {
+    fn op_skip_reg_ne(&mut self, x: usize, y: usize) {
+        if self.reg[x] != self.reg[y] {
             self.pc += 2;
         }
     }
@@ -334,13 +328,12 @@ impl Chip8 {
         self.pc = self.reg[0] as usize + address as usize;
     }
 
-    fn op_rand(&mut self, x: u16, value: u8) {
-        let x = x as usize;
+    fn op_rand(&mut self, x: usize, value: u8) {
         self.reg[x] = value & self.rng.gen::<u8>();
     }
 
-    fn op_display(&mut self, x: u16, y: u16, height: u8) {
-        let (x, y, height) = (x as usize, y as usize, height as usize);
+    fn op_display(&mut self, x: usize, y: usize, height: u8) {
+        let height = height as usize;
         let (row, col) = (self.reg[y] as usize, self.reg[x] as usize);
 
         let ptr = self.reg_ptr as usize;
@@ -365,8 +358,7 @@ impl Chip8 {
         self.reg[0xf] = if is_flipped { 1 } else { 0 };
     }
 
-    fn op_bdc(&mut self, x: u16) {
-        let x = x as usize;
+    fn op_bdc(&mut self, x: usize) {
         let mut val = self.reg[x];
         let ptr = self.reg_ptr as usize;
         self.memory[ptr + 2] = val % 10;
@@ -376,43 +368,41 @@ impl Chip8 {
         self.memory[ptr] = val % 10;
     }
 
-    fn op_reg_dump(&mut self, x: u16) {
-        let x = x as usize;
+    fn op_reg_dump(&mut self, x: usize) {
         let ptr = self.reg_ptr as usize;
         for offset in 0..=x {
             self.memory[ptr + offset] = self.reg[offset];
         }
     }
 
-    fn op_reg_load(&mut self, x: u16) {
-        let x = x as usize;
+    fn op_reg_load(&mut self, x: usize) {
         let ptr = self.reg_ptr as usize;
         for offset in 0..=x {
             self.reg[offset] = self.memory[ptr + offset];
         }
     }
 
-    fn op_ptr_add(&mut self, x: u16) {
-        let val = self.reg[x as usize];
+    fn op_ptr_add(&mut self, x: usize) {
+        let val = self.reg[x];
         self.reg_ptr += val as u16;
     }
 
-    fn op_mov_font_addr(&mut self, x: u16) {
-        // ????
-        let val = self.reg[x as usize] as u16;
+    fn op_mov_font_addr(&mut self, x: usize) {
+        // not sure if it works as expected
+        let val = self.reg[x] as u16;
         self.reg_ptr = FONT_START_ADDRESS as u16 + val * 5;
     }
 
-    fn op_set_delay(&mut self, x: u16) {
-        self.timer_delay = self.reg[x as usize];
+    fn op_set_delay(&mut self, x: usize) {
+        self.timer_delay = self.reg[x];
     }
 
-    fn op_set_sound(&mut self, x: u16) {
-        self.timer_sound = self.reg[x as usize];
+    fn op_set_sound(&mut self, x: usize) {
+        self.timer_sound = self.reg[x];
     }
 
-    fn op_dump_delay(&mut self, x: u16) {
-        self.reg[x as usize] = self.timer_delay;
+    fn op_dump_delay(&mut self, x: usize) {
+        self.reg[x] = self.timer_delay;
     }
 
     pub fn get_video_ram(&self) -> &[u8] {
