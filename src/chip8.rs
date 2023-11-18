@@ -18,8 +18,7 @@ pub const DISPLAY_SIZE: USize = USize {
 pub enum Error {
     MemoryFault(usize),          // access to wrong address
     CallMachineCodeRoutine(u16), // call machine code at address
-    UnknownOpcode(u16),
-    EmptyOpcode,
+    UnknownInstruction(Instruction),
 }
 
 #[derive(Clone, Copy)]
@@ -48,6 +47,33 @@ const FONT_SPRITES: [u8; 5 * 16] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
 const FONT_START_ADDRESS: usize = 0x50;
+
+#[derive(Debug)]
+pub struct Instruction {
+    header: u8,
+    nnn: u16,
+    nn: u8,
+    n: u8,
+    x: usize,
+    y: usize,
+}
+
+impl Instruction {
+    fn with_opcode(opcode: u16) -> Self {
+        Self {
+            header: (opcode >> 12 & 0xf) as u8,
+            nnn: opcode & 0xfff,
+            nn: (opcode & 0xff) as u8,
+            n: (opcode & 0x0f) as u8,
+            x: (opcode >> 8 & 0xf) as usize,
+            y: (opcode >> 4 & 0xf) as usize,
+        }
+    }
+
+    fn with_bytes(high: u8, low: u8) -> Self {
+        Self::with_opcode((high as u16) << 8 | low as u16)
+    }
+}
 
 pub struct Chip8 {
     reg: [u8; REGISTERS_COUNT],
@@ -121,100 +147,72 @@ impl Chip8 {
     }
 
     pub fn teak(&mut self) -> Result<(), Error> {
-        let opcode = (self.memory[self.pc] as u16) << 8 | self.memory[self.pc + 1] as u16;
-        if opcode == 0 {
-            return Err(Error::EmptyOpcode);
-        }
+        let instr = Instruction::with_bytes(self.memory[self.pc], self.memory[self.pc + 1]);
         self.pc += 2;
-
-        // decode
-        // NNN: address
-        // NN: 8-bit constant
-        // N: 4-bit constant
-        // X and Y: 4-bit register identifier
-        // PC : Program Counter
-        // I : 16bit register (For memory address) (Similar to void pointer);
-        // VN: One of the 16 available variables. N may be 0 to F (hexadecimal);
-
-        // P****
-        let prefix = opcode >> 12;
-
-        // *nnn
-        let address = opcode & 0xfff;
-
-        // **nn
-        let constant = (opcode & 0xff) as u8;
-
-        // *X**
-        let reg_x = (opcode >> 8 & 0xf) as usize;
-        // **Y*
-        let reg_y = (opcode >> 4 & 0xf) as usize;
-
-        // ***S
-        let suffix = (opcode & 0x0f) as u8;
-        match prefix {
-            0x0 => match address {
+        let (nnn, nn, n, x, y) = (instr.nnn, instr.nn, instr.n, instr.x, instr.y);
+        match instr.header {
+            0x0 => match nnn {
                 0xe0 => self.op_clear_screen(),
                 0xee => self.op_return(),
-                _ => return Err(Error::CallMachineCodeRoutine(address)),
+                _ => return Err(Error::CallMachineCodeRoutine(nnn)),
             },
-            0x1 => self.op_jmp(address),
-            0x2 => self.op_call(address),
-            0x3 => self.op_skip_eq(reg_x, constant),
-            0x4 => self.op_skip_ne(reg_x, constant),
+            0x1 => self.op_jmp(nnn),
+            0x2 => self.op_call(nnn),
+            0x3 => self.op_skip_eq(x, nn),
+            0x4 => self.op_skip_ne(x, nn),
             0x5 => {
-                assert_eq!(suffix, 0);
-                self.op_skip_reg_eq(reg_x, reg_y)
+                assert_eq!(n, 0);
+                self.op_skip_reg_eq(x, y)
             }
-            0x6 => self.op_mov(reg_x, constant),
-            0x7 => self.op_add(reg_x, constant),
-            0x8 => match suffix {
-                0x0 => self.op_reg_mov(reg_x, reg_y),
-                0x1 => self.op_or(reg_x, reg_y),
-                0x2 => self.op_and(reg_x, reg_y),
-                0x3 => self.op_xor(reg_x, reg_y),
-                0x4 => self.op_reg_add(reg_x, reg_y),
-                0x5 => self.op_reg_sub(reg_x, reg_y),
-                0x6 => self.op_shr(reg_x),
-                0x7 => self.op_reg_sub_rev(reg_x, reg_y),
-                0xe => self.op_shl(reg_x),
+            0x6 => self.op_mov(x, nn),
+            0x7 => self.op_add(x, nn),
+            0x8 => match n {
+                0x0 => self.op_reg_mov(x, y),
+                0x1 => self.op_or(x, y),
+                0x2 => self.op_and(x, y),
+                0x3 => self.op_xor(x, y),
+                0x4 => self.op_reg_add(x, y),
+                0x5 => self.op_reg_sub(x, y),
+                0x6 => self.op_shr(x),
+                0x7 => self.op_reg_sub_rev(x, y),
+                0xe => self.op_shl(x),
                 _ => {
-                    return Err(Error::UnknownOpcode(opcode));
+                    return Err(Error::UnknownInstruction(instr));
                 }
             },
             0x9 => {
-                assert_eq!(suffix, 0);
-                self.op_skip_reg_ne(reg_x, reg_y)
+                assert_eq!(n, 0);
+                self.op_skip_reg_ne(x, y)
             }
-            0xa => self.op_mov_ptr(address),
-            0xb => self.op_reg0_jmp(address),
-            0xc => self.op_rand(reg_x, constant),
-            0xd => self.op_display(reg_x, reg_y, suffix),
-            0xe => match constant {
-                0x9e => self.op_skip_key_eq(reg_x),
-                0xa1 => self.op_skip_key_ne(reg_x),
+            0xa => self.op_mov_ptr(nnn),
+            0xb => self.op_reg0_jmp(nnn),
+            0xc => self.op_rand(x, nn),
+            0xd => self.op_display(x, y, n),
+            0xe => match nn {
+                0x9e => self.op_skip_key_eq(x),
+                0xa1 => self.op_skip_key_ne(x),
                 _ => {
-                    return Err(Error::UnknownOpcode(opcode));
+                    return Err(Error::UnknownInstruction(instr));
                 }
             },
-            0xf => match constant {
-                0x07 => self.op_dump_delay(reg_x),
-                0x0a => self.op_wait_key(reg_x),
-                0x15 => self.op_set_delay(reg_x),
-                0x18 => self.op_set_sound(reg_x),
-                0x1e => self.op_ptr_add(reg_x),
-                0x29 => self.op_mov_font_addr(reg_x),
-                0x33 => self.op_bdc(reg_x),
-                0x55 => self.op_reg_dump(reg_x),
-                0x65 => self.op_reg_load(reg_x),
+            0xf => match nn {
+                0x07 => self.op_dump_delay(x),
+                0x0a => self.op_wait_key(x),
+                0x15 => self.op_set_delay(x),
+                0x18 => self.op_set_sound(x),
+                0x1e => self.op_ptr_add(x),
+                0x29 => self.op_mov_font_addr(x),
+                0x33 => self.op_bdc(x),
+                0x55 => self.op_reg_dump(x),
+                0x65 => self.op_reg_load(x),
                 _ => {
-                    println!("Opcode {opcode} not implemented yet for F-group, const={constant:x}");
                     self.state = State::Paused;
+                    return Err(Error::UnknownInstruction(instr));
                 }
             },
             _ => {
                 self.state = State::Paused;
-                return Err(Error::UnknownOpcode(opcode));
+                return Err(Error::UnknownInstruction(instr));
             }
         }
         Ok(())
