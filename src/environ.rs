@@ -167,7 +167,6 @@ impl<'a> Environment<'a> {
                     size as u32,
                     size as u32,
                 );
-                // canvas.draw_rect(rect)?;
                 canvas.fill_rect(rect)?;
             }
         }
