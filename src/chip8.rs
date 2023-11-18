@@ -361,11 +361,10 @@ impl Chip8 {
 
     fn op_display(&mut self, x: usize, y: usize, height: u8) {
         let height = height as usize;
-        let (row, col) = (self.reg[y] as usize, self.reg[x] as usize);
-
+        let row = self.reg[y] as usize % DISPLAY_SIZE.height;
+        let col = self.reg[x] as usize % DISPLAY_SIZE.width;
         let ptr = self.reg_ptr as usize;
-
-        let mut is_flipped = false;
+        self.reg[0xf] = 0;
         for (i, val) in self.memory[ptr..ptr + height].iter().enumerate() {
             let r = row + i;
             if r >= DISPLAY_SIZE.height {
@@ -378,11 +377,13 @@ impl Chip8 {
                 }
                 let idx = r * DISPLAY_SIZE.width + c;
                 let prev = self.video_memory[idx];
-                self.video_memory[idx] ^= (val >> (7 - j)) & 1;
-                is_flipped |= prev == 1 && self.video_memory[idx] == 0;
+                let pixel = (val >> (7 - j)) & 1;
+                if prev & pixel > 0 {
+                    self.reg[0xf] = 1;
+                }
+                self.video_memory[idx] ^= pixel;
             }
         }
-        self.reg[0xf] = if is_flipped { 1 } else { 0 };
     }
 
     fn op_bdc(&mut self, x: usize) {
