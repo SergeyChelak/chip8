@@ -7,14 +7,14 @@ use std::time::{Duration, Instant};
 use sdl2::audio::{AudioCallback, AudioSpecDesired, AudioStatus};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::libc::getchar;
+
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 use sdl2::{AudioSubsystem, Sdl, VideoSubsystem};
 
 use crate::chip8::{self, Chip8, State};
-use crate::config::{self, AppearanceConfig};
+use crate::config::AppearanceConfig;
 
 pub struct Environment<'a> {
     sdl_context: Sdl,
