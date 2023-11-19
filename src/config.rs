@@ -31,7 +31,7 @@ impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
             scale: 16,
-            color_foreground: 0xff_ff_00,
+            color_foreground: 0xff_ff_ff,
             color_background: 0x00_00_00,
             is_pixel_style: true,
             operations_per_second: 800,
