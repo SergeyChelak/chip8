@@ -40,7 +40,8 @@ fn main() {
 }
 
 fn show_usage() {
-    println!("Here should be a manual of how to use interpreter");
+    println!("Chip8 Interpreter");
+    println!("\tusage: chip8 <path-to-rom-file>");
 }
 
 fn load_rom<P: AsRef<Path>>(path: P) -> io::Result<Vec<u8>> {
