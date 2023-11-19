@@ -136,6 +136,7 @@ impl<'a> Environment<'a> {
         match keycode {
             Keycode::Escape => self.machine.terminate(),
             Keycode::F5 => self.machine.toggle_execution(),
+            Keycode::F9 => self.machine.reset(),
             _ => {
                 // unhandled keys
             }

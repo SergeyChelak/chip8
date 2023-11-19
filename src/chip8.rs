@@ -111,33 +111,49 @@ pub struct Chip8 {
     key_pressed: Option<u8>,
     state: State,
     rng: ThreadRng,
+    rom: Vec<u8>,
 }
 
 impl Chip8 {
-    pub fn with_rom(rom: &[u8]) -> Result<Self, Error> {
-        let mut memory = [0u8; MEMORY_SIZE];
+    pub fn with_rom(rom: Vec<u8>) -> Result<Self, Error> {
         if rom.len() > MEMORY_SIZE - PROGRAM_BASE_ADDRESS {
             return Err(Error::RomTooBig(rom.len()));
         }
-        for (i, val) in rom.iter().enumerate() {
-            memory[PROGRAM_BASE_ADDRESS + i] = *val
-        }
-        for (i, val) in FONT_SPRITES.iter().enumerate() {
-            memory[FONT_BASE_ADDRESS + i] = *val;
-        }
-        Ok(Self {
+        let mut machine = Self {
             reg: [0u8; REGISTERS_COUNT],
             reg_ptr: 0,
             timer_delay: 0,
             timer_sound: 0,
             sp: 0,
             pc: PROGRAM_BASE_ADDRESS,
-            memory,
+            memory: [0u8; MEMORY_SIZE],
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
             key_pressed: None,
-            state: State::Running,
+            state: State::Paused,
             rng: rand::thread_rng(),
-        })
+            rom,
+        };
+        machine.reset();
+        Ok(machine)
+    }
+
+    pub fn reset(&mut self) {
+        self.memory.iter_mut().for_each(|x| *x = 0);
+        for (i, val) in self.rom.iter().enumerate() {
+            self.memory[PROGRAM_BASE_ADDRESS + i] = *val
+        }
+        for (i, val) in FONT_SPRITES.iter().enumerate() {
+            self.memory[FONT_BASE_ADDRESS + i] = *val;
+        }
+        self.reg.iter_mut().for_each(|x| *x = 0);
+        self.reg_ptr = 0;
+        self.timer_delay = 0;
+        self.timer_sound = 0;
+        self.sp = 0;
+        self.pc = PROGRAM_BASE_ADDRESS;
+        self.video_memory.iter_mut().for_each(|x| *x = 0);
+        self.state = State::Running;
+        self.key_pressed = None;
     }
 
     pub fn get_state(&self) -> State {
