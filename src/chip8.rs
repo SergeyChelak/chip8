@@ -340,7 +340,7 @@ impl Chip8 {
     fn op_reg_sub(&mut self, x: usize, y: usize) {
         let a = self.reg[x];
         let b = self.reg[y];
-        let vf = (b < a) as u8;
+        let vf = (b <= a) as u8;
         self.reg[x] = a.wrapping_sub(b);
         self.reg[0xf] = vf;
     }
@@ -354,7 +354,7 @@ impl Chip8 {
     fn op_reg_sub_rev(&mut self, x: usize, y: usize) {
         let a = self.reg[x];
         let b = self.reg[y];
-        let vf = (a < b) as u8;
+        let vf = (a <= b) as u8;
         self.reg[x] = b.wrapping_sub(a);
         self.reg[0xf] = vf;
     }
