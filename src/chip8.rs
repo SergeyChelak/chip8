@@ -332,32 +332,37 @@ impl Chip8 {
         let a = self.reg[x] as u16;
         let b = self.reg[y] as u16;
         let sum = a + b;
-        self.reg[0xf] = (sum > 0xff) as u8;
+        let vf = (sum > 0xff) as u8;
         self.reg[x] = (sum & 0xff) as u8;
+        self.reg[0xf] = vf;
     }
 
     fn op_reg_sub(&mut self, x: usize, y: usize) {
         let a = self.reg[x];
         let b = self.reg[y];
-        self.reg[0xf] = (b < a) as u8;
-        self.reg[x] = (a.wrapping_sub(b) & 0xff) as u8;
+        let vf = (b < a) as u8;
+        self.reg[x] = a.wrapping_sub(b);
+        self.reg[0xf] = vf;
     }
 
     fn op_shr(&mut self, x: usize) {
-        self.reg[0xf] = self.reg[x] & 1;
+        let vf = self.reg[x] & 1;
         self.reg[x] >>= 1;
+        self.reg[0xf] = vf;
     }
 
     fn op_reg_sub_rev(&mut self, x: usize, y: usize) {
         let a = self.reg[x];
         let b = self.reg[y];
-        self.reg[0xf] = (a < b) as u8;
-        self.reg[x] = (b.wrapping_sub(a) & 0xff) as u8;
+        let vf = (a < b) as u8;
+        self.reg[x] = b.wrapping_sub(a);
+        self.reg[0xf] = vf;
     }
 
     fn op_shl(&mut self, x: usize) {
-        self.reg[0xf] = self.reg[x] >> 7;
+        let vf = self.reg[x] >> 7;
         self.reg[x] <<= 1;
+        self.reg[0xf] = vf;
     }
 
     fn op_skip_reg_ne(&mut self, x: usize, y: usize) {
