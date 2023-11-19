@@ -3,13 +3,6 @@ use std::path::Path;
 
 use crate::chip8::Quirks;
 
-#[derive(Clone, Copy)]
-pub struct Color {
-    pub red: u8,
-    pub green: u8,
-    pub blue: u8,
-}
-
 #[derive(Default)]
 pub struct Config {
     pub appearance: AppearanceConfig,
@@ -27,8 +20,8 @@ impl Config {
 
 pub struct AppearanceConfig {
     pub scale: usize,
-    pub color_foreground: Color,
-    pub color_background: Color,
+    pub color_foreground: u32,
+    pub color_background: u32,
     pub is_pixel_style: bool,
     pub operations_per_second: u64,
     pub sound_volume: f32,
@@ -38,16 +31,8 @@ impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
             scale: 16,
-            color_foreground: Color {
-                red: 0xff,
-                green: 0xff,
-                blue: 0xff,
-            },
-            color_background: Color {
-                red: 0x00,
-                green: 0x00,
-                blue: 0x00,
-            },
+            color_foreground: 0xff_ff_00,
+            color_background: 0x00_00_00,
             is_pixel_style: true,
             operations_per_second: 800,
             sound_volume: 0.1,

@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use sdl2::audio::{AudioCallback, AudioSpecDesired, AudioStatus};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::libc::getchar;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
@@ -160,8 +161,8 @@ impl<'a> Environment<'a> {
     fn draw_display(&mut self, canvas: &mut WindowCanvas) -> Result<(), String> {
         let memory = self.machine.get_video_ram();
         let size = self.config.scale;
-        let bg_color = Color::from(self.config.color_background);
-        let fg_color = Color::from(self.config.color_foreground);
+        let bg_color = get_color(self.config.color_background);
+        let fg_color = get_color(self.config.color_foreground);
         for r in 0..chip8::DISPLAY_SIZE.height {
             for c in 0..chip8::DISPLAY_SIZE.width {
                 let idx = r * chip8::DISPLAY_SIZE.width + c;
@@ -184,12 +185,12 @@ impl<'a> Environment<'a> {
     }
 }
 
-impl From<config::Color> for Color {
-    fn from(value: config::Color) -> Self {
-        Color::RGB(value.red, value.green, value.blue)
-    }
+fn get_color(color_code: u32) -> Color {
+    let r = (color_code >> 16) & 0xff;
+    let g = (color_code >> 8) & 0xff;
+    let b = color_code & 0xff;
+    Color::RGB(r as u8, g as u8, b as u8)
 }
-
 // https://docs.rs/sdl2/latest/sdl2/audio/index.html
 struct SquareWave {
     phase_inc: f32,
