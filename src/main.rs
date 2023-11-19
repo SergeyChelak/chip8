@@ -15,13 +15,15 @@ mod common;
 mod environ;
 use environ::Environment;
 
+const CONFIG_FILE_NAME: &str = "chip8.toml";
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
         show_usage();
         return;
     }
-    let config = Config::with_file("chip.cfg").unwrap_or_default();
+    let config = Config::with_file(CONFIG_FILE_NAME).unwrap_or_default();
 
     // setup chip8
     let Ok(rom) = load_rom(&args[1]) else {

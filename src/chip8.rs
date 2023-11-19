@@ -4,7 +4,7 @@ use rand::{rngs::ThreadRng, Rng};
 ///
 use std::fmt::Display;
 
-use crate::common::USize;
+use crate::{common::USize, config::Quirks};
 
 const MEMORY_SIZE: usize = 4 * 1024;
 const REGISTERS_COUNT: usize = 16;
@@ -98,24 +98,6 @@ impl Display for Instruction {
             "Header: {:x}, NNN: {:x}, NN: {:x}, N: {:x}, X: {:x}, Y:{:x}",
             self.header, self.nnn, self.nn, self.n, self.x, self.y
         )
-    }
-}
-
-pub struct Quirks {
-    vf_reset: bool, // reset vf register after AND, OR, XOR operations
-    memory: bool,   // increase RI after register dumb/load operations
-    shifting: bool, // TRUE to SHR/SHL with Vx only, otherwise perform Vx = Vy before
-    jumping: bool,
-}
-
-impl Default for Quirks {
-    fn default() -> Self {
-        Self {
-            vf_reset: true,
-            memory: false,
-            shifting: true,
-            jumping: false,
-        }
     }
 }
 
