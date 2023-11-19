@@ -22,8 +22,12 @@ impl Config {
 #[derive(Deserialize)]
 pub struct AppearanceConfig {
     pub scale: usize,
-    pub color_foreground: u32,
-    pub color_background: u32,
+    pub foreground_red: u8,
+    pub foreground_green: u8,
+    pub foreground_blue: u8,
+    pub background_red: u8,
+    pub background_green: u8,
+    pub background_blue: u8,
     pub is_pixel_style: bool,
     pub operations_per_second: u64,
     pub sound_volume: f32,
@@ -33,8 +37,12 @@ impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
             scale: 16,
-            color_foreground: 0xff_ff_ff,
-            color_background: 0x00_00_00,
+            foreground_red: 0xff,
+            foreground_green: 0xff,
+            foreground_blue: 0xff,
+            background_red: 0,
+            background_green: 0,
+            background_blue: 0,
             is_pixel_style: true,
             operations_per_second: 800,
             sound_volume: 0.1,

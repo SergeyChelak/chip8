@@ -1,9 +1,13 @@
 [appearance]
 scale = 20
-color_foreground = 16777215
-color_background = 0
+foreground_red = 255
+foreground_green = 155
+foreground_blue = 55
+background_red = 0
+background_green = 0
+background_blue = 0
 is_pixel_style = true
-operations_per_second = 800
+operations_per_second = 850
 sound_volume = 0.1
 
 [quirks]
