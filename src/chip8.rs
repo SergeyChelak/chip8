@@ -101,23 +101,21 @@ impl Display for Instruction {
 }
 
 pub struct Quirks {
-    vf_reset: bool,
-    memory: bool,
-    display_wait: bool,
-    _clipping: bool,
-    shifting: bool,
-    _jumping: bool,
+    vf_reset: bool, // reset vf register after AND, OR, XOR operations
+    memory: bool,   // increase RI after register dumb/load operations
+    _display_wait: bool,
+    shifting: bool, // TRUE to SHR/SHL with Vx only, otherwise perform Vx = Vy before
+    jumping: bool,
 }
 
 impl Default for Quirks {
     fn default() -> Self {
         Self {
             vf_reset: true,
-            memory: false,
-            display_wait: false,
-            _clipping: Default::default(),
-            shifting: Default::default(),
-            _jumping: Default::default(),
+            memory: true,
+            _display_wait: false,
+            shifting: false,
+            jumping: false,
         }
     }
 }
@@ -228,16 +226,16 @@ impl Chip8 {
                 0x3 => self.op_xor(x, y),
                 0x4 => self.op_reg_add(x, y),
                 0x5 => self.op_reg_sub(x, y),
-                0x6 => self.op_shr(x), // y should be ignored?
+                0x6 => self.op_shr(x, y),
                 0x7 => self.op_reg_sub_rev(x, y),
-                0xe => self.op_shl(x), // y should be ignored?
+                0xe => self.op_shl(x, y),
                 _ => {
                     return Err(Error::UnknownInstruction(instr));
                 }
             },
             0x9 => self.op_skip_reg_ne(x, y),
             0xa => self.op_mov_ptr(nnn),
-            0xb => self.op_reg0_jmp(nnn),
+            0xb => self.op_reg_jmp(nnn),
             0xc => self.op_rand(x, nn),
             0xd => self.op_display(x, y, n),
             0xe => match nn {
@@ -379,7 +377,10 @@ impl Chip8 {
         self.reg[0xf] = vf;
     }
 
-    fn op_shr(&mut self, x: usize) {
+    fn op_shr(&mut self, x: usize, y: usize) {
+        if !self.quirks.shifting {
+            self.reg[x] = self.reg[y];
+        }
         let vf = self.reg[x] & 1;
         self.reg[x] >>= 1;
         self.reg[0xf] = vf;
@@ -393,7 +394,10 @@ impl Chip8 {
         self.reg[0xf] = vf;
     }
 
-    fn op_shl(&mut self, x: usize) {
+    fn op_shl(&mut self, x: usize, y: usize) {
+        if !self.quirks.shifting {
+            self.reg[x] = self.reg[y];
+        }
         let vf = self.reg[x] >> 7;
         self.reg[x] <<= 1;
         self.reg[0xf] = vf;
@@ -409,8 +413,13 @@ impl Chip8 {
         self.ri = address;
     }
 
-    fn op_reg0_jmp(&mut self, address: u16) {
-        self.pc = self.reg[0] as usize + address as usize;
+    fn op_reg_jmp(&mut self, address: u16) {
+        let base = if self.quirks.jumping {
+            self.reg[((address >> 8) & 0xf) as usize]
+        } else {
+            self.reg[0]
+        };
+        self.pc = base as usize + address as usize;
     }
 
     fn op_rand(&mut self, x: usize, value: u8) {
