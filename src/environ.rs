@@ -81,7 +81,7 @@ impl<'a> Environment<'a> {
                 SquareWave {
                     phase_inc: 220.0 / spec.freq as f32,
                     phase: 0.0,
-                    volume: 0.15,
+                    volume: self.config.sound_volume,
                 }
             })
             .map_err(|op| op.to_string())?;
@@ -89,7 +89,9 @@ impl<'a> Environment<'a> {
         // events
         let mut event_pump = self.sdl_context.event_pump()?;
         let mut refresh_time = Instant::now();
+        let exp_duration = Duration::from_micros(1_000_000 / self.config.operations_per_second);
         'emu_loop: loop {
+            let cycle_start = Instant::now();
             for event in event_pump.poll_iter() {
                 match event {
                     Event::Quit { .. } => break 'emu_loop,
@@ -108,7 +110,6 @@ impl<'a> Environment<'a> {
                 }
                 State::Paused => audio_device.pause(),
             }
-
             if refresh_time.elapsed().as_millis() >= 1000 / 60 {
                 match (self.machine.is_audio_playing(), audio_device.status()) {
                     (false, AudioStatus::Playing) => audio_device.pause(),
@@ -120,7 +121,11 @@ impl<'a> Environment<'a> {
                 self.machine.on_timer();
                 refresh_time = Instant::now();
             }
-            ::std::thread::sleep(Duration::new(0, 500_000u32));
+            let cycle_duration = cycle_start.elapsed();
+            let sleep_time = exp_duration.saturating_sub(cycle_duration);
+            if !sleep_time.is_zero() {
+                ::std::thread::sleep(sleep_time);
+            }
         }
         Ok(())
     }

@@ -30,6 +30,8 @@ pub struct AppearanceConfig {
     pub color_foreground: Color,
     pub color_background: Color,
     pub is_pixel_style: bool,
+    pub operations_per_second: u64,
+    pub sound_volume: f32,
 }
 
 impl Default for AppearanceConfig {
@@ -47,6 +49,8 @@ impl Default for AppearanceConfig {
                 blue: 0x00,
             },
             is_pixel_style: true,
+            operations_per_second: 800,
+            sound_volume: 0.1,
         }
     }
 }

@@ -112,8 +112,8 @@ impl Default for Quirks {
     fn default() -> Self {
         Self {
             vf_reset: true,
-            memory: true,
-            shifting: false,
+            memory: false,
+            shifting: true,
             jumping: false,
         }
     }
