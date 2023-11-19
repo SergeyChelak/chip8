@@ -104,7 +104,6 @@ impl Display for Instruction {
 pub struct Quirks {
     vf_reset: bool, // reset vf register after AND, OR, XOR operations
     memory: bool,   // increase RI after register dumb/load operations
-    _display_wait: bool,
     shifting: bool, // TRUE to SHR/SHL with Vx only, otherwise perform Vx = Vy before
     jumping: bool,
 }
@@ -114,7 +113,6 @@ impl Default for Quirks {
         Self {
             vf_reset: true,
             memory: true,
-            _display_wait: false,
             shifting: false,
             jumping: false,
         }
