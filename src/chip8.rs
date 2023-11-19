@@ -59,9 +59,10 @@ const FONT_SPRITES: [u8; 5 * 16] = [
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
-const FONT_BASE_ADDRESS: usize = 0x50;
-const STACK_BASE_ADDRESS: usize = 0x00;
+const FONT_BASE_ADDRESS: usize = 0x050;
+const STACK_BASE_ADDRESS: usize = 0x010;
 const PROGRAM_BASE_ADDRESS: usize = 0x200;
+const KB_WAIT_KEYCODE_ADDRESS: usize = 0x000;
 
 #[derive(Debug)]
 pub struct Instruction {
@@ -130,7 +131,6 @@ pub struct Chip8 {
     memory: [u8; MEMORY_SIZE],
     video_memory: Vec<u8>,
     keypad: [bool; 0x10], // true if key pressed
-    rkc: Option<u8>,      // release keycode register
     state: State,
     rng: ThreadRng,
     rom: Vec<u8>,
@@ -152,7 +152,6 @@ impl Chip8 {
             memory: [0u8; MEMORY_SIZE],
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
             keypad: [false; 0x10],
-            rkc: None,
             state: State::Paused,
             rng: rand::thread_rng(),
             rom,
@@ -178,7 +177,6 @@ impl Chip8 {
         self.pc = PROGRAM_BASE_ADDRESS;
         self.video_memory.iter_mut().for_each(|x| *x = 0);
         self.keypad.iter_mut().for_each(|x| *x = false);
-        self.rkc = None;
         self.state = State::Running;
     }
 
@@ -519,11 +517,15 @@ impl Chip8 {
     }
 
     fn op_wait_key(&mut self, x: usize) {
-        if let Some(key_code) = self.rkc {
-            // wait for release
+        // Highest bit is a flag that displays if key already pressed
+        // Lowest bits are representing keycode
+        let val = self.memory[KB_WAIT_KEYCODE_ADDRESS];
+        let is_pressed = val >> 7 == 1;
+        if is_pressed {
+            let key_code = val & 0xf;
             if !self.keypad[key_code as usize] {
                 self.reg[x] = key_code;
-                self.rkc = None;
+                self.memory[KB_WAIT_KEYCODE_ADDRESS] = 0;
                 return;
             }
         } else if let Some((key_code, _)) = self
@@ -532,7 +534,7 @@ impl Chip8 {
             .enumerate()
             .find(|&(_, is_pressed)| *is_pressed)
         {
-            self.rkc = Some(key_code as u8);
+            self.memory[KB_WAIT_KEYCODE_ADDRESS] = 1 << 7 | key_code as u8;
         }
         self.pc -= 2;
     }
