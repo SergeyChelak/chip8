@@ -101,9 +101,9 @@ impl Display for Instruction {
 }
 pub struct Chip8 {
     reg: [u8; REGISTERS_COUNT],
-    reg_ptr: u16, // register pointer to memory
-    timer_delay: u8,
-    timer_sound: u8,
+    ri: u16,   // indexing register
+    dt: u8,    // delay timer
+    st: u8,    // sound time
     sp: usize, // stack pointer
     pc: usize, // program counter
     memory: [u8; MEMORY_SIZE],
@@ -121,9 +121,9 @@ impl Chip8 {
         }
         let mut machine = Self {
             reg: [0u8; REGISTERS_COUNT],
-            reg_ptr: 0,
-            timer_delay: 0,
-            timer_sound: 0,
+            ri: 0,
+            dt: 0,
+            st: 0,
             sp: 0,
             pc: PROGRAM_BASE_ADDRESS,
             memory: [0u8; MEMORY_SIZE],
@@ -146,9 +146,9 @@ impl Chip8 {
             self.memory[FONT_BASE_ADDRESS + i] = *val;
         }
         self.reg.iter_mut().for_each(|x| *x = 0);
-        self.reg_ptr = 0;
-        self.timer_delay = 0;
-        self.timer_sound = 0;
+        self.ri = 0;
+        self.dt = 0;
+        self.st = 0;
         self.sp = 0;
         self.pc = PROGRAM_BASE_ADDRESS;
         self.video_memory.iter_mut().for_each(|x| *x = 0);
@@ -173,8 +173,8 @@ impl Chip8 {
     }
 
     pub fn on_timer(&mut self) {
-        self.timer_delay = self.timer_delay.saturating_sub(1);
-        self.timer_sound = self.timer_sound.saturating_sub(1);
+        self.dt = self.dt.saturating_sub(1);
+        self.st = self.st.saturating_sub(1);
     }
 
     pub fn teak(&mut self) -> Result<(), Error> {
@@ -367,7 +367,7 @@ impl Chip8 {
     }
 
     fn op_mov_ptr(&mut self, address: u16) {
-        self.reg_ptr = address;
+        self.ri = address;
     }
 
     fn op_reg0_jmp(&mut self, address: u16) {
@@ -382,7 +382,7 @@ impl Chip8 {
         let height = height as usize;
         let row = self.reg[y] as usize % DISPLAY_SIZE.height;
         let col = self.reg[x] as usize % DISPLAY_SIZE.width;
-        let ptr = self.reg_ptr as usize;
+        let ptr = self.ri as usize;
         self.reg[0xf] = 0;
         for (i, val) in self.memory[ptr..ptr + height].iter().enumerate() {
             let r = row + i;
@@ -407,21 +407,21 @@ impl Chip8 {
 
     fn op_bdc(&mut self, x: usize) {
         let val = self.reg[x];
-        let ptr = self.reg_ptr as usize;
+        let ptr = self.ri as usize;
         self.memory[ptr] = val / 100 % 10;
         self.memory[ptr + 1] = val / 10 % 10;
         self.memory[ptr + 2] = val % 10;
     }
 
     fn op_reg_dump(&mut self, x: usize) {
-        let ptr = self.reg_ptr as usize;
+        let ptr = self.ri as usize;
         for offset in 0..=x {
             self.memory[ptr + offset] = self.reg[offset];
         }
     }
 
     fn op_reg_load(&mut self, x: usize) {
-        let ptr = self.reg_ptr as usize;
+        let ptr = self.ri as usize;
         for offset in 0..=x {
             self.reg[offset] = self.memory[ptr + offset];
         }
@@ -429,24 +429,24 @@ impl Chip8 {
 
     fn op_ptr_add(&mut self, x: usize) {
         let val = self.reg[x];
-        self.reg_ptr += val as u16;
+        self.ri += val as u16;
     }
 
     fn op_mov_font_addr(&mut self, x: usize) {
         let val = self.reg[x] as u16;
-        self.reg_ptr = FONT_BASE_ADDRESS as u16 + val * 5;
+        self.ri = FONT_BASE_ADDRESS as u16 + val * 5;
     }
 
     fn op_set_delay(&mut self, x: usize) {
-        self.timer_delay = self.reg[x];
+        self.dt = self.reg[x];
     }
 
     fn op_set_sound(&mut self, x: usize) {
-        self.timer_sound = self.reg[x];
+        self.st = self.reg[x];
     }
 
     fn op_dump_delay(&mut self, x: usize) {
-        self.reg[x] = self.timer_delay;
+        self.reg[x] = self.dt;
     }
 
     fn op_skip_key_eq(&mut self, x: usize) {
@@ -482,6 +482,6 @@ impl Chip8 {
     }
 
     pub fn is_audio_playing(&self) -> bool {
-        self.timer_sound > 0
+        self.st > 0
     }
 }
