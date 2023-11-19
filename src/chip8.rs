@@ -108,7 +108,7 @@ pub struct Chip8 {
     pc: usize, // program counter
     memory: [u8; MEMORY_SIZE],
     video_memory: Vec<u8>,
-    key_pressed: Option<u8>,
+    keypad: [bool; 0x10], // true if key pressed
     state: State,
     rng: ThreadRng,
     rom: Vec<u8>,
@@ -128,7 +128,7 @@ impl Chip8 {
             pc: PROGRAM_BASE_ADDRESS,
             memory: [0u8; MEMORY_SIZE],
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
-            key_pressed: None,
+            keypad: [false; 0x10],
             state: State::Paused,
             rng: rand::thread_rng(),
             rom,
@@ -152,8 +152,8 @@ impl Chip8 {
         self.sp = 0;
         self.pc = PROGRAM_BASE_ADDRESS;
         self.video_memory.iter_mut().for_each(|x| *x = 0);
+        self.keypad.iter_mut().for_each(|x| *x = false);
         self.state = State::Running;
-        self.key_pressed = None;
     }
 
     pub fn get_state(&self) -> State {
@@ -450,23 +450,28 @@ impl Chip8 {
     }
 
     fn op_skip_key_eq(&mut self, x: usize) {
-        if Some(self.reg[x]) == self.key_pressed {
+        if self.keypad[self.reg[x] as usize] {
             self.pc += 2;
         }
     }
 
     fn op_skip_key_ne(&mut self, x: usize) {
-        if Some(self.reg[x]) != self.key_pressed {
+        if !self.keypad[self.reg[x] as usize] {
             self.pc += 2;
         }
     }
 
     fn op_wait_key(&mut self, x: usize) {
-        let Some(key_code) = self.key_pressed else {
+        let Some((key_code, _)) = self
+            .keypad
+            .iter()
+            .enumerate()
+            .find(|&(_, is_pressed)| *is_pressed)
+        else {
             self.pc -= 2;
             return;
         };
-        self.reg[x] = key_code;
+        self.reg[x] = key_code as u8;
     }
 
     pub fn get_video_ram(&self) -> &[u8] {
@@ -474,11 +479,11 @@ impl Chip8 {
     }
 
     pub fn key_down(&mut self, key_code: u8) {
-        self.key_pressed = Some(key_code);
+        self.keypad[key_code as usize] = true;
     }
 
-    pub fn key_up(&mut self) {
-        self.key_pressed = None;
+    pub fn key_up(&mut self, key_code: u8) {
+        self.keypad[key_code as usize] = false;
     }
 
     pub fn is_audio_playing(&self) -> bool {

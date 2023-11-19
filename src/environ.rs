@@ -147,8 +147,8 @@ impl<'a> Environment<'a> {
         let Some(keycode) = keycode else {
             return;
         };
-        if self.key_mapping.get(&keycode).is_some() {
-            self.machine.key_up();
+        if let Some(key_code) = self.key_mapping.get(&keycode) {
+            self.machine.key_up(*key_code);
         }
     }
 
