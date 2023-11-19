@@ -1,6 +1,8 @@
 use std::io::{self, Error, ErrorKind};
 use std::path::Path;
 
+use crate::chip8::Quirks;
+
 #[derive(Clone, Copy)]
 pub struct Color {
     pub red: u8,
@@ -8,11 +10,10 @@ pub struct Color {
     pub blue: u8,
 }
 
+#[derive(Default)]
 pub struct Config {
-    pub scale: usize,
-    pub color_foreground: Color,
-    pub color_background: Color,
-    pub is_pixel_style: bool,
+    pub appearance: AppearanceConfig,
+    pub quirks: Quirks,
 }
 
 impl Config {
@@ -24,10 +25,17 @@ impl Config {
     }
 }
 
-impl Default for Config {
+pub struct AppearanceConfig {
+    pub scale: usize,
+    pub color_foreground: Color,
+    pub color_background: Color,
+    pub is_pixel_style: bool,
+}
+
+impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
-            scale: 25,
+            scale: 16,
             color_foreground: Color {
                 red: 0xff,
                 green: 0xff,

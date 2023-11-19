@@ -28,11 +28,12 @@ fn main() {
         println!("Failed to load ROM {}", args[1]);
         return;
     };
-    let Ok(mut machine) = Chip8::with_rom(rom) else {
+    let Ok(mut machine) = Chip8::with_rom(rom, config.quirks) else {
         println!("Failed to load program into memory");
         return;
     };
-    let mut environ = Environment::new(config, &mut machine).expect("Failed to setup SDL2");
+    let mut environ =
+        Environment::new(config.appearance, &mut machine).expect("Failed to setup SDL2");
     _ = environ.run();
 }
 

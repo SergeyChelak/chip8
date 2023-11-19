@@ -99,6 +99,29 @@ impl Display for Instruction {
         )
     }
 }
+
+pub struct Quirks {
+    vf_reset: bool,
+    memory: bool,
+    display_wait: bool,
+    _clipping: bool,
+    shifting: bool,
+    _jumping: bool,
+}
+
+impl Default for Quirks {
+    fn default() -> Self {
+        Self {
+            vf_reset: true,
+            memory: false,
+            display_wait: false,
+            _clipping: Default::default(),
+            shifting: Default::default(),
+            _jumping: Default::default(),
+        }
+    }
+}
+
 pub struct Chip8 {
     reg: [u8; REGISTERS_COUNT],
     ri: u16,   // indexing register
@@ -112,10 +135,11 @@ pub struct Chip8 {
     state: State,
     rng: ThreadRng,
     rom: Vec<u8>,
+    quirks: Quirks,
 }
 
 impl Chip8 {
-    pub fn with_rom(rom: Vec<u8>) -> Result<Self, Error> {
+    pub fn with_rom(rom: Vec<u8>, quirks: Quirks) -> Result<Self, Error> {
         if rom.len() > MEMORY_SIZE - PROGRAM_BASE_ADDRESS {
             return Err(Error::RomTooBig(rom.len()));
         }
@@ -132,6 +156,7 @@ impl Chip8 {
             state: State::Paused,
             rng: rand::thread_rng(),
             rom,
+            quirks,
         };
         machine.reset();
         Ok(machine)
@@ -318,14 +343,23 @@ impl Chip8 {
 
     fn op_or(&mut self, x: usize, y: usize) {
         self.reg[x] |= self.reg[y];
+        if self.quirks.vf_reset {
+            self.reg[0xf] = 0;
+        }
     }
 
     fn op_and(&mut self, x: usize, y: usize) {
         self.reg[x] &= self.reg[y];
+        if self.quirks.vf_reset {
+            self.reg[0xf] = 0;
+        }
     }
 
     fn op_xor(&mut self, x: usize, y: usize) {
         self.reg[x] ^= self.reg[y];
+        if self.quirks.vf_reset {
+            self.reg[0xf] = 0;
+        }
     }
 
     fn op_reg_add(&mut self, x: usize, y: usize) {
@@ -423,12 +457,18 @@ impl Chip8 {
         for offset in 0..=x {
             self.memory[ptr + offset] = self.reg[offset];
         }
+        if self.quirks.memory {
+            self.ri += x as u16 + 1;
+        }
     }
 
     fn op_reg_load(&mut self, x: usize) {
         let ptr = self.ri as usize;
         for offset in 0..=x {
             self.reg[offset] = self.memory[ptr + offset];
+        }
+        if self.quirks.memory {
+            self.ri += x as u16 + 1;
         }
     }
 

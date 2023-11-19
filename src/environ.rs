@@ -13,19 +13,19 @@ use sdl2::render::WindowCanvas;
 use sdl2::{AudioSubsystem, Sdl, VideoSubsystem};
 
 use crate::chip8::{self, Chip8, State};
-use crate::config::{self, Config};
+use crate::config::{self, AppearanceConfig};
 
 pub struct Environment<'a> {
     sdl_context: Sdl,
     video_subsystem: VideoSubsystem,
     audio_subsystem: AudioSubsystem,
-    config: Config,
+    config: AppearanceConfig,
     machine: &'a mut Chip8,
     key_mapping: HashMap<Keycode, u8>,
 }
 
 impl<'a> Environment<'a> {
-    pub fn new(config: Config, machine: &'a mut Chip8) -> Result<Self, String> {
+    pub fn new(appearance: AppearanceConfig, machine: &'a mut Chip8) -> Result<Self, String> {
         let key_mapping = HashMap::from([
             (Keycode::Num1, 0x1),
             (Keycode::Num2, 0x2),
@@ -51,7 +51,7 @@ impl<'a> Environment<'a> {
             sdl_context,
             video_subsystem,
             audio_subsystem,
-            config,
+            config: appearance,
             machine,
             key_mapping,
         })
