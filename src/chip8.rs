@@ -130,6 +130,7 @@ pub struct Chip8 {
     memory: [u8; MEMORY_SIZE],
     video_memory: Vec<u8>,
     keypad: [bool; 0x10], // true if key pressed
+    rkc: Option<u8>,      // release keycode register
     state: State,
     rng: ThreadRng,
     rom: Vec<u8>,
@@ -151,6 +152,7 @@ impl Chip8 {
             memory: [0u8; MEMORY_SIZE],
             video_memory: vec![0u8; DISPLAY_SIZE.square()],
             keypad: [false; 0x10],
+            rkc: None,
             state: State::Paused,
             rng: rand::thread_rng(),
             rom,
@@ -176,6 +178,7 @@ impl Chip8 {
         self.pc = PROGRAM_BASE_ADDRESS;
         self.video_memory.iter_mut().for_each(|x| *x = 0);
         self.keypad.iter_mut().for_each(|x| *x = false);
+        self.rkc = None;
         self.state = State::Running;
     }
 
@@ -516,16 +519,22 @@ impl Chip8 {
     }
 
     fn op_wait_key(&mut self, x: usize) {
-        let Some((key_code, _)) = self
+        if let Some(key_code) = self.rkc {
+            // wait for release
+            if !self.keypad[key_code as usize] {
+                self.reg[x] = key_code;
+                self.rkc = None;
+                return;
+            }
+        } else if let Some((key_code, _)) = self
             .keypad
             .iter()
             .enumerate()
             .find(|&(_, is_pressed)| *is_pressed)
-        else {
-            self.pc -= 2;
-            return;
-        };
-        self.reg[x] = key_code as u8;
+        {
+            self.rkc = Some(key_code as u8);
+        }
+        self.pc -= 2;
     }
 
     pub fn get_video_ram(&self) -> &[u8] {
