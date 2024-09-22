@@ -1,4 +1,3 @@
-///
 extern crate sdl2;
 
 use std::collections::HashMap;
